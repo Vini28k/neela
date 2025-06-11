@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Primary App Colors -->
+    <color name="colorPrimary">#3182CE</color>
+    <color name="colorPrimaryDark">#2C5282</color>
+    <color name="colorAccent">#805AD5</color>
+    
+    <!-- Weather Colors -->
+    <color name="weather_clear">#38A169</color>
+    <color name="weather_cloudy">#718096</color>
+    <color name="weather_stormy">#E53E3E</color>
+    
+    <!-- Crisis Level Colors -->
+    <color name="crisis_normal">#38A169</color>
+    <color name="crisis_alert">#D69E2E</color>
+    <color name="crisis_pre_crisis">#E53E3E</color>
+    <color name="crisis_crisis">#C53030</color>
+    
+    <!-- Notification Colors -->
+    <color name="notification_default">#3182CE</color>
+    <color name="notification_crisis">#E53E3E</color>
+    <color name="notification_heart_rate">#D69E2E</color>
+    <color name="notification_reminder">#38A169</color>
+    
+    <!-- Background Colors -->
+    <color name="background_light">#F7FAFC</color>
+    <color name="background_dark">#1A202C</color>
+    <color name="surface_light">#FFFFFF</color>
+    <color name="surface_dark">#2D3748</color>
+    
+    <!-- Text Colors -->
+    <color name="text_primary_light">#2D3748</color>
+    <color name="text_primary_dark">#F7FAFC</color>
+    <color name="text_secondary_light">#718096</color>
+    <color name="text_secondary_dark">#A0AEC0</color>
+    
+    <!-- Status Bar -->
+    <color name="status_bar_light">#E2E8F0</color>
+    <color name="status_bar_dark">#1A202C</color>
+    
+    <!-- Splash Screen -->
+    <color name="splash_background">#3182CE</color>
+    <color name="splash_text">#FFFFFF</color>
+</resources>

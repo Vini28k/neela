@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<widget xmlns="http://www.w3.org/ns/widgets"
+        xmlns:cdv="http://cordova.apache.org/ns/1.0"
+        id="com.neela.mentalweather"
+        version="1.0.0">
+    
+    <name>Neela Mental Weather</name>
+    <description>Track your emotional weather patterns with heart rate monitoring</description>
+    <author email="support@mentalweather.app" href="https://mentalweather.app">
+        Mental Weather Team
+    </author>
+    
+    <!-- Capacitor Configuration -->
+    <preference name="ScrollEnabled" value="false" />
+    <preference name="BackgroundColor" value="#3182CE" />
+    <preference name="AllowInlineMediaPlayback" value="true" />
+    <preference name="DisallowOverscroll" value="true" />
+    <preference name="android-minSdkVersion" value="24" />
+    <preference name="android-targetSdkVersion" value="34" />
+    <preference name="android-compileSdkVersion" value="34" />
+    
+    <!-- Network Configuration -->
+    <preference name="Hostname" value="localhost" />
+    <preference name="AndroidScheme" value="https" />
+    <preference name="OverrideUserAgent" value="MentalWeatherApp/1.0.0" />
+    
+    <!-- Security Configuration -->
+    <preference name="AllowNavigationToExternalURLs" value="false" />
+    <preference name="MixedContentMode" value="0" />
+    
+    <!-- Bluetooth LE Plugin Configuration -->
+    <preference name="BluetoothDisplayStrings" value='{
+        "scanning": "Scanning for heart rate monitors...",
+        "cancel": "Cancel",
+        "availableDevices": "Available devices",
+        "noDeviceFound": "No heart rate monitors found"
+    }' />
+    
+    <!-- Local Notifications Configuration -->
+    <preference name="LocalNotificationSmallIcon" value="ic_stat_icon_config_sample" />
+    <preference name="LocalNotificationIconColor" value="#3182CE" />
+    <preference name="LocalNotificationSound" value="beep.wav" />
+    
+    <!-- Permissions -->
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+</widget>

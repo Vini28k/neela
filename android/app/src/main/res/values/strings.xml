@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Neela Mental Weather</string>
+    <string name="title_activity_main">Mental Weather</string>
+    <string name="package_name">com.neela.mentalweather</string>
+    <string name="custom_url_scheme">mentalweather</string>
+    
+    <!-- Notification Channels -->
+    <string name="default_notification_channel_id">mental_weather_default</string>
+    <string name="crisis_notification_channel_id">mental_weather_crisis</string>
+    <string name="heart_rate_notification_channel_id">mental_weather_heart_rate</string>
+    <string name="daily_reminder_notification_channel_id">mental_weather_reminders</string>
+    
+    <!-- Notification Channel Names -->
+    <string name="default_notification_channel_name">General Notifications</string>
+    <string name="crisis_notification_channel_name">Crisis Alerts</string>
+    <string name="heart_rate_notification_channel_name">Heart Rate Monitoring</string>
+    <string name="daily_reminder_notification_channel_name">Daily Reminders</string>
+    
+    <!-- Notification Channel Descriptions -->
+    <string name="default_notification_channel_description">General app notifications</string>
+    <string name="crisis_notification_channel_description">Critical alerts for crisis situations</string>
+    <string name="heart_rate_notification_channel_description">Heart rate monitoring and alerts</string>
+    <string name="daily_reminder_notification_channel_description">Daily check-in reminders</string>
+    
+    <!-- Permission Rationales -->
+    <string name="bluetooth_permission_rationale">Bluetooth access is required to connect to heart rate monitors and track your emotional weather patterns.</string>
+    <string name="location_permission_rationale">Location access is required for Bluetooth device scanning on Android 6.0 and above.</string>
+    <string name="notification_permission_rationale">Notification access is required to send crisis alerts and daily reminders.</string>
+    <string name="camera_permission_rationale">Camera access is optional and used for QR code scanning to connect devices.</string>
+    <string name="phone_permission_rationale">Phone access is used for emergency calling features during crisis situations.</string>
+    
+    <!-- Service Names -->
+    <string name="heart_rate_service_name">Heart Rate Monitoring</string>
+    <string name="crisis_alert_service_name">Crisis Alert System</string>
+    
+    <!-- Service Descriptions -->
+    <string name="heart_rate_service_description">Monitoring your heart rate for emotional weather patterns</string>
+    <string name="crisis_alert_service_description">Watching for crisis situations and providing immediate support</string>
+    
+    <!-- Emergency Messages -->
+    <string name="emergency_call_text">Emergency call initiated</string>
+    <string name="crisis_detected_text">Crisis situation detected - help is available</string>
+    <string name="heart_rate_alert_text">Unusual heart rate pattern detected</string>
+    
+    <!-- App Description -->
+    <string name="app_description">Track your emotional weather patterns with heart rate monitoring and get support when you need it most.</string>
+</resources>

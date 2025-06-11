@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Exclude sensitive user data from backup -->
+    <exclude domain="sharedpref" path="user_session.xml" />
+    <exclude domain="sharedpref" path="auth_tokens.xml" />
+    <exclude domain="database" path="heart_rate.db" />
+    <exclude domain="database" path="user_data.db" />
+    <exclude domain="file" path="private_keys/" />
+    <exclude domain="file" path="temp_data/" />
+    
+    <!-- Include app settings and preferences -->
+    <include domain="sharedpref" path="app_settings.xml" />
+    <include domain="file" path="app_config/" />
+</full-backup-content>
