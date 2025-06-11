@@ -1,54 +1,32 @@
+/**
+ * Optimized API service with caching and error handling
+ * Consolidated all API operations with improved performance
+ */
+
 import { supabase } from '@/lib/supabase';
-
-// API Service for Mental Weather App
-export interface WeatherState {
-  id?: string;
-  user_id: string;
-  weather_type: 'clear' | 'cloudy' | 'stormy';
-  intensity_percentage: number;
-  crisis_level: 'normal' | 'alert' | 'pre_crisis' | 'crisis';
-  heart_rate?: number | null;
-  created_at?: string;
-}
-
-export interface UserProfile {
-  id: string;
-  email: string;
-  name: string | null;
-  timezone: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface HeartRateData {
-  id?: string;
-  user_id: string;
-  heart_rate: number;
-  heart_rate_variability?: number | null;
-  timestamp: string;
-  device_id?: string | null;
-  created_at?: string;
-}
-
-export interface EmergencyContact {
-  id?: string;
-  user_id: string;
-  name: string;
-  phone: string;
-  email?: string | null;
-  relationship: string;
-  is_primary: boolean;
-  created_at?: string;
-}
-
-export interface WearableDataResponse {
-  weather: WeatherState;
-  baseline: UserProfile;
-  crisisLevel: string;
-}
+import { cacheService } from './cacheService';
+import { analyzeHeartRateForWeather } from '@/utils/helpers';
+import { CACHE_CONFIG } from '@/utils/constants';
+import type {
+  WeatherState,
+  UserProfile,
+  HeartRateData,
+  EmergencyContact,
+  WearableDataResponse
+} from '@/types';
 
 class ApiService {
+  /**
+   * Get current weather with caching
+   */
   async getCurrentWeather(userId: string): Promise<WeatherState> {
+    const cacheKey = `weather_${userId}`;
+    const cached = cacheService.get<WeatherState>(cacheKey);
+    
+    if (cached) {
+      return cached;
+    }
+
     try {
       const { data, error } = await supabase
         .from('weather_states')
@@ -58,36 +36,31 @@ class ApiService {
         .limit(1)
         .single();
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+      if (error && error.code !== 'PGRST116') {
         throw error;
       }
 
-      if (!data) {
-        // Return default weather state if no data found
-        return {
-          user_id: userId,
-          weather_type: 'clear',
-          intensity_percentage: 25,
-          crisis_level: 'normal',
-          created_at: new Date().toISOString()
-        };
-      }
-
-      return data;
+      const weatherState = data || this.getDefaultWeatherState(userId);
+      cacheService.set(cacheKey, weatherState, CACHE_CONFIG.WEATHER_TTL);
+      
+      return weatherState;
     } catch (error) {
       console.error('Error fetching current weather:', error);
-      // Return default weather state on error
-      return {
-        user_id: userId,
-        weather_type: 'clear',
-        intensity_percentage: 25,
-        crisis_level: 'normal',
-        created_at: new Date().toISOString()
-      };
+      return this.getDefaultWeatherState(userId);
     }
   }
 
+  /**
+   * Get user profile with caching
+   */
   async getUserProfile(userId: string): Promise<UserProfile | null> {
+    const cacheKey = `profile_${userId}`;
+    const cached = cacheService.get<UserProfile>(cacheKey);
+    
+    if (cached) {
+      return cached;
+    }
+
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -100,6 +73,7 @@ class ApiService {
         return null;
       }
 
+      cacheService.set(cacheKey, data, CACHE_CONFIG.PROFILE_TTL);
       return data;
     } catch (error) {
       console.error('Exception fetching user profile:', error);
@@ -107,6 +81,9 @@ class ApiService {
     }
   }
 
+  /**
+   * Submit heart rate data and analyze weather
+   */
   async submitHeartRateData(heartRateData: HeartRateData): Promise<WeatherState> {
     try {
       // Insert heart rate data
@@ -114,12 +91,15 @@ class ApiService {
         .from('heart_rate_data')
         .insert(heartRateData);
 
-      if (hrError) {
-        throw hrError;
-      }
+      if (hrError) throw hrError;
 
-      // Analyze heart rate and determine weather state
-      const weatherState = this.analyzeHeartRateForWeather(heartRateData);
+      // Analyze and create weather state
+      const analysis = analyzeHeartRateForWeather(heartRateData.heart_rate);
+      const weatherState: Omit<WeatherState, 'id' | 'created_at'> = {
+        user_id: heartRateData.user_id,
+        heart_rate: heartRateData.heart_rate,
+        ...analysis
+      };
 
       // Insert weather state
       const { data: weatherData, error: weatherError } = await supabase
@@ -128,10 +108,11 @@ class ApiService {
         .select()
         .single();
 
-      if (weatherError) {
-        throw weatherError;
-      }
+      if (weatherError) throw weatherError;
 
+      // Invalidate cache
+      this.invalidateUserCache(heartRateData.user_id);
+      
       return weatherData;
     } catch (error) {
       console.error('Error submitting heart rate data:', error);
@@ -139,45 +120,9 @@ class ApiService {
     }
   }
 
-  private analyzeHeartRateForWeather(heartRateData: HeartRateData): Omit<WeatherState, 'id' | 'created_at'> {
-    const { heart_rate, user_id } = heartRateData;
-    
-    // Simple analysis logic (would be replaced with ML model)
-    let weather_type: 'clear' | 'cloudy' | 'stormy';
-    let crisis_level: 'normal' | 'alert' | 'pre_crisis' | 'crisis';
-    let intensity_percentage: number;
-
-    if (heart_rate < 60) {
-      weather_type = 'clear';
-      crisis_level = 'normal';
-      intensity_percentage = 20;
-    } else if (heart_rate < 80) {
-      weather_type = 'clear';
-      crisis_level = 'normal';
-      intensity_percentage = 40;
-    } else if (heart_rate < 100) {
-      weather_type = 'cloudy';
-      crisis_level = 'alert';
-      intensity_percentage = 60;
-    } else if (heart_rate < 120) {
-      weather_type = 'stormy';
-      crisis_level = 'pre_crisis';
-      intensity_percentage = 80;
-    } else {
-      weather_type = 'stormy';
-      crisis_level = 'crisis';
-      intensity_percentage = 95;
-    }
-
-    return {
-      user_id,
-      weather_type,
-      intensity_percentage,
-      crisis_level,
-      heart_rate
-    };
-  }
-
+  /**
+   * Get emergency contacts
+   */
   async getEmergencyContacts(userId: string): Promise<EmergencyContact[]> {
     try {
       const { data, error } = await supabase
@@ -186,10 +131,7 @@ class ApiService {
         .eq('user_id', userId)
         .order('is_primary', { ascending: false });
 
-      if (error) {
-        throw error;
-      }
-
+      if (error) throw error;
       return data || [];
     } catch (error) {
       console.error('Error fetching emergency contacts:', error);
@@ -197,6 +139,9 @@ class ApiService {
     }
   }
 
+  /**
+   * Add emergency contact
+   */
   async addEmergencyContact(contact: Omit<EmergencyContact, 'id' | 'created_at'>): Promise<EmergencyContact> {
     try {
       const { data, error } = await supabase
@@ -205,10 +150,7 @@ class ApiService {
         .select()
         .single();
 
-      if (error) {
-        throw error;
-      }
-
+      if (error) throw error;
       return data;
     } catch (error) {
       console.error('Error adding emergency contact:', error);
@@ -216,19 +158,23 @@ class ApiService {
     }
   }
 
-  async getHeartRateHistory(userId: string, limit: number = 100): Promise<HeartRateData[]> {
+  /**
+   * Get heart rate history with pagination
+   */
+  async getHeartRateHistory(
+    userId: string, 
+    limit: number = 100,
+    offset: number = 0
+  ): Promise<HeartRateData[]> {
     try {
       const { data, error } = await supabase
         .from('heart_rate_data')
         .select('*')
         .eq('user_id', userId)
         .order('timestamp', { ascending: false })
-        .limit(limit);
+        .range(offset, offset + limit - 1);
 
-      if (error) {
-        throw error;
-      }
-
+      if (error) throw error;
       return data || [];
     } catch (error) {
       console.error('Error fetching heart rate history:', error);
@@ -236,19 +182,23 @@ class ApiService {
     }
   }
 
-  async getWeatherHistory(userId: string, limit: number = 50): Promise<WeatherState[]> {
+  /**
+   * Get weather history with pagination
+   */
+  async getWeatherHistory(
+    userId: string, 
+    limit: number = 50,
+    offset: number = 0
+  ): Promise<WeatherState[]> {
     try {
       const { data, error } = await supabase
         .from('weather_states')
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
-        .limit(limit);
+        .range(offset, offset + limit - 1);
 
-      if (error) {
-        throw error;
-      }
-
+      if (error) throw error;
       return data || [];
     } catch (error) {
       console.error('Error fetching weather history:', error);
@@ -256,6 +206,9 @@ class ApiService {
     }
   }
 
+  /**
+   * Update user profile
+   */
   async updateUserProfile(userId: string, updates: Partial<UserProfile>): Promise<UserProfile> {
     try {
       const { data, error } = await supabase
@@ -268,15 +221,44 @@ class ApiService {
         .select()
         .single();
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
+      // Update cache
+      cacheService.set(`profile_${userId}`, data, CACHE_CONFIG.PROFILE_TTL);
+      
       return data;
     } catch (error) {
       console.error('Error updating user profile:', error);
       throw error;
     }
+  }
+
+  /**
+   * Clear user-specific cache
+   */
+  invalidateUserCache(userId: string): void {
+    cacheService.delete(`weather_${userId}`);
+    cacheService.delete(`profile_${userId}`);
+  }
+
+  /**
+   * Clear all cache
+   */
+  clearCache(): void {
+    cacheService.clear();
+  }
+
+  /**
+   * Get default weather state
+   */
+  private getDefaultWeatherState(userId: string): WeatherState {
+    return {
+      user_id: userId,
+      weather_type: 'clear',
+      intensity_percentage: 25,
+      crisis_level: 'normal',
+      created_at: new Date().toISOString()
+    };
   }
 }
 

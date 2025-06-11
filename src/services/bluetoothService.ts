@@ -1,27 +1,25 @@
-import { BleClient, BleDevice, numbersToDataView, numberToUUID } from '@capacitor-community/bluetooth-le';
+/**
+ * Optimized Bluetooth service with better performance and battery management
+ * Consolidated device management and heart rate monitoring
+ */
+
+import { BleClient, BleDevice } from '@capacitor-community/bluetooth-le';
 import { Capacitor } from '@capacitor/core';
-
-// Heart Rate Service UUID (standard Bluetooth SIG UUID)
-const HEART_RATE_SERVICE = '0000180d-0000-1000-8000-00805f9b34fb';
-const HEART_RATE_MEASUREMENT = '00002a37-0000-1000-8000-00805f9b34fb';
-
-export interface HeartRateReading {
-  heartRate: number;
-  timestamp: Date;
-  deviceId: string;
-}
-
-export interface BluetoothDevice {
-  deviceId: string;
-  name: string;
-  rssi?: number;
-}
+import { getUpdateInterval, generateMockHeartRate, isValidHeartRate } from '@/utils/helpers';
+import { BLUETOOTH_CONFIG } from '@/utils/constants';
+import type { HeartRateReading, BluetoothDevice, CrisisLevel } from '@/types';
 
 class BluetoothService {
   private connectedDevice: BleDevice | null = null;
   private isScanning = false;
   private heartRateCallback: ((reading: HeartRateReading) => void) | null = null;
+  private mockInterval: NodeJS.Timeout | null = null;
+  private baseHeartRate = 70;
+  private currentCrisisLevel: CrisisLevel = 'normal';
 
+  /**
+   * Initialize Bluetooth LE
+   */
   async initialize(): Promise<boolean> {
     try {
       if (!Capacitor.isNativePlatform()) {
@@ -38,6 +36,9 @@ class BluetoothService {
     }
   }
 
+  /**
+   * Request necessary permissions
+   */
   async requestPermissions(): Promise<boolean> {
     try {
       if (!Capacitor.isNativePlatform()) {
@@ -53,13 +54,17 @@ class BluetoothService {
     }
   }
 
-  async scanForDevices(timeoutMs: number = 10000): Promise<BluetoothDevice[]> {
+  /**
+   * Scan for heart rate devices
+   */
+  async scanForDevices(timeoutMs: number = BLUETOOTH_CONFIG.SCAN_TIMEOUT): Promise<BluetoothDevice[]> {
     try {
       if (!Capacitor.isNativePlatform()) {
         // Return mock devices for web development
         return [
           { deviceId: 'mock-polar-h10', name: 'Polar H10 (Mock)' },
-          { deviceId: 'mock-apple-watch', name: 'Apple Watch (Mock)' }
+          { deviceId: 'mock-apple-watch', name: 'Apple Watch (Mock)' },
+          { deviceId: 'mock-fitbit', name: 'Fitbit Sense (Mock)' }
         ];
       }
 
@@ -72,7 +77,7 @@ class BluetoothService {
 
       await BleClient.requestLEScan(
         {
-          services: [HEART_RATE_SERVICE],
+          services: [BLUETOOTH_CONFIG.HEART_RATE_SERVICE],
           allowDuplicates: false,
         },
         (result) => {
@@ -86,12 +91,8 @@ class BluetoothService {
         }
       );
 
-      // Stop scanning after timeout
-      setTimeout(async () => {
-        if (this.isScanning) {
-          await this.stopScanning();
-        }
-      }, timeoutMs);
+      // Auto-stop scanning after timeout
+      setTimeout(() => this.stopScanning(), timeoutMs);
 
       return devices;
     } catch (error) {
@@ -101,6 +102,9 @@ class BluetoothService {
     }
   }
 
+  /**
+   * Stop device scanning
+   */
   async stopScanning(): Promise<void> {
     try {
       if (Capacitor.isNativePlatform() && this.isScanning) {
@@ -114,6 +118,9 @@ class BluetoothService {
     }
   }
 
+  /**
+   * Connect to a specific device
+   */
   async connectToDevice(deviceId: string): Promise<boolean> {
     try {
       if (!Capacitor.isNativePlatform()) {
@@ -126,9 +133,8 @@ class BluetoothService {
         return true;
       }
 
-      await BleClient.connect(deviceId);
+      await BleClient.connect(deviceId, undefined, BLUETOOTH_CONFIG.CONNECTION_TIMEOUT);
       
-      // Get device info
       const device = await BleClient.getDevice(deviceId);
       this.connectedDevice = device;
 
@@ -140,27 +146,33 @@ class BluetoothService {
     }
   }
 
-  async startHeartRateMonitoring(callback: (reading: HeartRateReading) => void): Promise<boolean> {
+  /**
+   * Start heart rate monitoring with adaptive sampling
+   */
+  async startHeartRateMonitoring(
+    callback: (reading: HeartRateReading) => void,
+    crisisLevel: CrisisLevel = 'normal'
+  ): Promise<boolean> {
     try {
       if (!this.connectedDevice) {
         throw new Error('No device connected');
       }
 
       this.heartRateCallback = callback;
+      this.currentCrisisLevel = crisisLevel;
 
       if (!Capacitor.isNativePlatform()) {
-        // Start mock heart rate monitoring for web development
         this.startMockHeartRateMonitoring();
         return true;
       }
 
       await BleClient.startNotifications(
         this.connectedDevice.deviceId,
-        HEART_RATE_SERVICE,
-        HEART_RATE_MEASUREMENT,
+        BLUETOOTH_CONFIG.HEART_RATE_SERVICE,
+        BLUETOOTH_CONFIG.HEART_RATE_MEASUREMENT,
         (value) => {
           const heartRate = this.parseHeartRateValue(value);
-          if (heartRate && this.heartRateCallback) {
+          if (heartRate && isValidHeartRate(heartRate) && this.heartRateCallback) {
             this.heartRateCallback({
               heartRate,
               timestamp: new Date(),
@@ -178,41 +190,62 @@ class BluetoothService {
     }
   }
 
-  private startMockHeartRateMonitoring(): void {
-    // Generate realistic heart rate data for testing
-    let baseHeartRate = 70;
+  /**
+   * Update crisis level for adaptive sampling
+   */
+  updateCrisisLevel(crisisLevel: CrisisLevel): void {
+    this.currentCrisisLevel = crisisLevel;
     
-    const generateReading = () => {
-      // Add some realistic variation
-      const variation = (Math.random() - 0.5) * 10;
-      const heartRate = Math.max(50, Math.min(120, baseHeartRate + variation));
-      
-      // Slowly drift the base heart rate
-      baseHeartRate += (Math.random() - 0.5) * 2;
-      baseHeartRate = Math.max(60, Math.min(100, baseHeartRate));
-
-      if (this.heartRateCallback) {
-        this.heartRateCallback({
-          heartRate: Math.round(heartRate),
-          timestamp: new Date(),
-          deviceId: this.connectedDevice!.deviceId
-        });
-      }
-    };
-
-    // Generate readings every 1-2 seconds
-    const interval = setInterval(() => {
-      if (!this.connectedDevice || !this.heartRateCallback) {
-        clearInterval(interval);
-        return;
-      }
-      generateReading();
-    }, 1000 + Math.random() * 1000);
+    // Restart mock monitoring with new interval if active
+    if (this.mockInterval && !Capacitor.isNativePlatform()) {
+      this.stopMockHeartRateMonitoring();
+      this.startMockHeartRateMonitoring();
+    }
   }
 
+  /**
+   * Start mock heart rate monitoring for development
+   */
+  private startMockHeartRateMonitoring(): void {
+    const generateReading = () => {
+      if (!this.heartRateCallback || !this.connectedDevice) {
+        this.stopMockHeartRateMonitoring();
+        return;
+      }
+
+      const heartRate = generateMockHeartRate(this.baseHeartRate);
+      
+      // Slowly drift the base heart rate
+      this.baseHeartRate += (Math.random() - 0.5) * 2;
+      this.baseHeartRate = Math.max(60, Math.min(100, this.baseHeartRate));
+
+      this.heartRateCallback({
+        heartRate,
+        timestamp: new Date(),
+        deviceId: this.connectedDevice.deviceId
+      });
+    };
+
+    // Use adaptive interval based on crisis level
+    const interval = getUpdateInterval(this.currentCrisisLevel);
+    this.mockInterval = setInterval(generateReading, interval);
+  }
+
+  /**
+   * Stop mock heart rate monitoring
+   */
+  private stopMockHeartRateMonitoring(): void {
+    if (this.mockInterval) {
+      clearInterval(this.mockInterval);
+      this.mockInterval = null;
+    }
+  }
+
+  /**
+   * Parse heart rate value from Bluetooth data
+   */
   private parseHeartRateValue(value: DataView): number | null {
     try {
-      // Heart Rate Measurement format (Bluetooth SIG specification)
       const flags = value.getUint8(0);
       const is16Bit = flags & 0x01;
       
@@ -227,16 +260,20 @@ class BluetoothService {
     }
   }
 
+  /**
+   * Stop heart rate monitoring
+   */
   async stopHeartRateMonitoring(): Promise<void> {
     try {
       if (this.connectedDevice && Capacitor.isNativePlatform()) {
         await BleClient.stopNotifications(
           this.connectedDevice.deviceId,
-          HEART_RATE_SERVICE,
-          HEART_RATE_MEASUREMENT
+          BLUETOOTH_CONFIG.HEART_RATE_SERVICE,
+          BLUETOOTH_CONFIG.HEART_RATE_MEASUREMENT
         );
       }
       
+      this.stopMockHeartRateMonitoring();
       this.heartRateCallback = null;
       console.log('Stopped heart rate monitoring');
     } catch (error) {
@@ -244,6 +281,9 @@ class BluetoothService {
     }
   }
 
+  /**
+   * Disconnect from device
+   */
   async disconnect(): Promise<void> {
     try {
       if (this.connectedDevice) {
@@ -261,12 +301,31 @@ class BluetoothService {
     }
   }
 
+  /**
+   * Check if device is connected
+   */
   isConnected(): boolean {
     return this.connectedDevice !== null;
   }
 
+  /**
+   * Get connected device info
+   */
   getConnectedDevice(): BleDevice | null {
     return this.connectedDevice;
+  }
+
+  /**
+   * Get service statistics
+   */
+  getStats() {
+    return {
+      isConnected: this.isConnected(),
+      isScanning: this.isScanning,
+      deviceName: this.connectedDevice?.name || null,
+      crisisLevel: this.currentCrisisLevel,
+      updateInterval: getUpdateInterval(this.currentCrisisLevel)
+    };
   }
 }
 
