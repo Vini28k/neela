@@ -1,143 +1,282 @@
+import { supabase } from '@/lib/supabase';
+
 // API Service for Mental Weather App
 export interface WeatherState {
+  id?: string;
   user_id: string;
   weather_type: 'clear' | 'cloudy' | 'stormy';
   intensity_percentage: number;
   crisis_level: 'normal' | 'alert' | 'pre_crisis' | 'crisis';
-  timestamp: string;
+  heart_rate?: number | null;
+  created_at?: string;
 }
 
-export interface UserBaseline {
-  user_id: string;
-  resting_heart_rate: number;
-  stress_threshold: number;
-  calm_threshold: number;
+export interface UserProfile {
+  id: string;
+  email: string;
+  name: string | null;
+  timezone: string;
   created_at: string;
   updated_at: string;
 }
 
-export interface WearableDataResponse {
-  weather: WeatherState;
-  baseline: UserBaseline;
-  crisisLevel: string;
-}
-
-export interface Quote {
-  id: string;
-  quote_text: string;
-  author?: string;
-  category: string;
-  crisis_appropriate: boolean;
-  created_at: string;
+export interface HeartRateData {
+  id?: string;
+  user_id: string;
+  heart_rate: number;
+  heart_rate_variability?: number | null;
+  timestamp: string;
+  device_id?: string | null;
+  created_at?: string;
 }
 
 export interface EmergencyContact {
-  id: string;
+  id?: string;
   user_id: string;
   name: string;
   phone: string;
-  email?: string;
+  email?: string | null;
   relationship: string;
   is_primary: boolean;
-  created_at: string;
+  created_at?: string;
+}
+
+export interface WearableDataResponse {
+  weather: WeatherState;
+  baseline: UserProfile;
+  crisisLevel: string;
 }
 
 class ApiService {
-  private baseUrl = '/api'; // This would be your actual API base URL
-
   async getCurrentWeather(userId: string): Promise<WeatherState> {
-    // Mock implementation - replace with actual API call
-    return {
-      user_id: userId,
-      weather_type: 'clear',
-      intensity_percentage: 25,
-      crisis_level: 'normal',
-      timestamp: new Date().toISOString()
-    };
+    try {
+      const { data, error } = await supabase
+        .from('weather_states')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+        throw error;
+      }
+
+      if (!data) {
+        // Return default weather state if no data found
+        return {
+          user_id: userId,
+          weather_type: 'clear',
+          intensity_percentage: 25,
+          crisis_level: 'normal',
+          created_at: new Date().toISOString()
+        };
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error fetching current weather:', error);
+      // Return default weather state on error
+      return {
+        user_id: userId,
+        weather_type: 'clear',
+        intensity_percentage: 25,
+        crisis_level: 'normal',
+        created_at: new Date().toISOString()
+      };
+    }
   }
 
-  async getUserBaseline(userId: string): Promise<UserBaseline> {
-    // Mock implementation - replace with actual API call
-    return {
-      user_id: userId,
-      resting_heart_rate: 70,
-      stress_threshold: 85,
-      calm_threshold: 65,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
+  async getUserProfile(userId: string): Promise<UserProfile | null> {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching user profile:', error);
+        return null;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Exception fetching user profile:', error);
+      return null;
+    }
   }
 
-  async submitWearableData(userId: string, heartRate: number): Promise<WearableDataResponse> {
-    // Mock implementation - replace with actual API call
-    const weather: WeatherState = {
-      user_id: userId,
-      weather_type: heartRate > 85 ? 'stormy' : heartRate > 75 ? 'cloudy' : 'clear',
-      intensity_percentage: Math.min(100, Math.max(0, (heartRate - 60) * 2)),
-      crisis_level: heartRate > 100 ? 'crisis' : heartRate > 90 ? 'pre_crisis' : 'normal',
-      timestamp: new Date().toISOString()
-    };
+  async submitHeartRateData(heartRateData: HeartRateData): Promise<WeatherState> {
+    try {
+      // Insert heart rate data
+      const { error: hrError } = await supabase
+        .from('heart_rate_data')
+        .insert(heartRateData);
 
-    const baseline: UserBaseline = {
-      user_id: userId,
-      resting_heart_rate: 70,
-      stress_threshold: 85,
-      calm_threshold: 65,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
+      if (hrError) {
+        throw hrError;
+      }
 
-    return {
-      weather,
-      baseline,
-      crisisLevel: weather.crisis_level
-    };
+      // Analyze heart rate and determine weather state
+      const weatherState = this.analyzeHeartRateForWeather(heartRateData);
+
+      // Insert weather state
+      const { data: weatherData, error: weatherError } = await supabase
+        .from('weather_states')
+        .insert(weatherState)
+        .select()
+        .single();
+
+      if (weatherError) {
+        throw weatherError;
+      }
+
+      return weatherData;
+    } catch (error) {
+      console.error('Error submitting heart rate data:', error);
+      throw error;
+    }
   }
 
-  async getQuotes(category: string, context: string, userId: string): Promise<Quote> {
-    // Mock implementation - replace with actual API call
-    const quotes = [
-      "This feeling will pass. You have gotten through difficult moments before.",
-      "You are safe right now. Take one breath at a time.",
-      "Your feelings are valid, and you deserve support and care.",
-      "This storm in your mind is temporary. You are stronger than you know.",
-      "You are not alone. Help is available and people care about you."
-    ];
+  private analyzeHeartRateForWeather(heartRateData: HeartRateData): Omit<WeatherState, 'id' | 'created_at'> {
+    const { heart_rate, user_id } = heartRateData;
+    
+    // Simple analysis logic (would be replaced with ML model)
+    let weather_type: 'clear' | 'cloudy' | 'stormy';
+    let crisis_level: 'normal' | 'alert' | 'pre_crisis' | 'crisis';
+    let intensity_percentage: number;
 
-    const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+    if (heart_rate < 60) {
+      weather_type = 'clear';
+      crisis_level = 'normal';
+      intensity_percentage = 20;
+    } else if (heart_rate < 80) {
+      weather_type = 'clear';
+      crisis_level = 'normal';
+      intensity_percentage = 40;
+    } else if (heart_rate < 100) {
+      weather_type = 'cloudy';
+      crisis_level = 'alert';
+      intensity_percentage = 60;
+    } else if (heart_rate < 120) {
+      weather_type = 'stormy';
+      crisis_level = 'pre_crisis';
+      intensity_percentage = 80;
+    } else {
+      weather_type = 'stormy';
+      crisis_level = 'crisis';
+      intensity_percentage = 95;
+    }
 
     return {
-      id: Math.random().toString(36),
-      quote_text: randomQuote,
-      author: 'Mental Weather Team',
-      category,
-      crisis_appropriate: category === 'crisis',
-      created_at: new Date().toISOString()
+      user_id,
+      weather_type,
+      intensity_percentage,
+      crisis_level,
+      heart_rate
     };
   }
 
   async getEmergencyContacts(userId: string): Promise<EmergencyContact[]> {
-    // Mock implementation - replace with actual API call
-    return [
-      {
-        id: '1',
-        user_id: userId,
-        name: 'Crisis Text Line',
-        phone: '741741',
-        relationship: 'Crisis Support',
-        is_primary: true,
-        created_at: new Date().toISOString()
-      },
-      {
-        id: '2',
-        user_id: userId,
-        name: 'National Suicide Prevention Lifeline',
-        phone: '988',
-        relationship: 'Crisis Support',
-        is_primary: false,
-        created_at: new Date().toISOString()
+    try {
+      const { data, error } = await supabase
+        .from('emergency_contacts')
+        .select('*')
+        .eq('user_id', userId)
+        .order('is_primary', { ascending: false });
+
+      if (error) {
+        throw error;
       }
-    ];
+
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching emergency contacts:', error);
+      return [];
+    }
+  }
+
+  async addEmergencyContact(contact: Omit<EmergencyContact, 'id' | 'created_at'>): Promise<EmergencyContact> {
+    try {
+      const { data, error } = await supabase
+        .from('emergency_contacts')
+        .insert(contact)
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error adding emergency contact:', error);
+      throw error;
+    }
+  }
+
+  async getHeartRateHistory(userId: string, limit: number = 100): Promise<HeartRateData[]> {
+    try {
+      const { data, error } = await supabase
+        .from('heart_rate_data')
+        .select('*')
+        .eq('user_id', userId)
+        .order('timestamp', { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        throw error;
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching heart rate history:', error);
+      return [];
+    }
+  }
+
+  async getWeatherHistory(userId: string, limit: number = 50): Promise<WeatherState[]> {
+    try {
+      const { data, error } = await supabase
+        .from('weather_states')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        throw error;
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching weather history:', error);
+      return [];
+    }
+  }
+
+  async updateUserProfile(userId: string, updates: Partial<UserProfile>): Promise<UserProfile> {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId)
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error updating user profile:', error);
+      throw error;
+    }
   }
 }
 

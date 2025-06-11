@@ -19,7 +19,7 @@ const SettingsPageHeader = ({ isDarkMode }: SettingsPageHeaderProps) => {
   const handleSignOut = async () => {
     try {
       setIsSigningOut(true);
-      logout();
+      await logout();
       toast({
         title: "Signed Out",
         description: "You have been successfully signed out.",

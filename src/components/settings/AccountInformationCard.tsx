@@ -70,7 +70,7 @@ const AccountInformationCard = ({ timezone, onTimezoneChange, isDarkMode }: Acco
             Account Status: Active
           </Badge>
           <Badge variant="outline" className={isDarkMode ? 'border-gray-600 text-gray-300' : ''}>
-            Member since: {user?.name ? 'Recently' : 'Recently'}
+            Member since: {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'Recently'}
           </Badge>
         </div>
       </CardContent>

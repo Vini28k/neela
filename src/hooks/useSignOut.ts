@@ -14,7 +14,7 @@ export const useSignOut = () => {
       setIsSigningOut(true);
       console.log('🔍 useSignOut: Initiating sign out...');
       
-      logout();
+      await logout();
       
       toast({
         title: "Signed Out",

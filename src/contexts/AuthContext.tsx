@@ -1,19 +1,15 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-
-interface User {
-  id: string;
-  email: string;
-  name?: string;
-  createdAt?: string;
-}
+import { User, Session, AuthError } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name?: string) => Promise<void>;
-  logout: () => void;
+  session: Session | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, name?: string) => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -32,114 +28,185 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Check for existing session on mount
   useEffect(() => {
-    const checkAuthState = async () => {
+    console.log('🔍 AuthProvider: Initializing Supabase auth...');
+    
+    // Get initial session
+    const getInitialSession = async () => {
       try {
-        const savedUser = localStorage.getItem('auth_user');
-        const savedToken = localStorage.getItem('auth_token');
+        const { data: { session }, error } = await supabase.auth.getSession();
         
-        if (savedUser && savedToken) {
-          // In a real app, you'd validate the token with your backend
-          const userData = JSON.parse(savedUser);
-          setUser(userData);
+        if (error) {
+          console.error('🔍 AuthProvider: Error getting initial session:', error);
+        } else {
+          console.log('🔍 AuthProvider: Initial session:', session?.user?.email || 'No session');
+          setSession(session);
+          setUser(session?.user ?? null);
         }
       } catch (error) {
-        console.error('Error checking auth state:', error);
-        // Clear invalid data
-        localStorage.removeItem('auth_user');
-        localStorage.removeItem('auth_token');
+        console.error('🔍 AuthProvider: Exception getting initial session:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    checkAuthState();
+    getInitialSession();
+
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('🔍 AuthProvider: Auth state change:', {
+          event,
+          userEmail: session?.user?.email || 'No user',
+          sessionExists: !!session
+        });
+        
+        setSession(session);
+        setUser(session?.user ?? null);
+        setIsLoading(false);
+        
+        // Create or update user profile on sign up/sign in
+        if (event === 'SIGNED_IN' && session?.user) {
+          await createOrUpdateProfile(session.user);
+        }
+        
+        if (event === 'SIGNED_OUT') {
+          console.log('🔍 AuthProvider: User successfully signed out');
+        }
+      }
+    );
+
+    return () => {
+      console.log('🔍 AuthProvider: Cleaning up auth subscription');
+      subscription.unsubscribe();
+    };
   }, []);
 
-  const login = async (email: string, password: string): Promise<void> => {
-    setIsLoading(true);
-    
+  const createOrUpdateProfile = async (user: User) => {
     try {
-      // Simulate API call - replace with actual authentication
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Mock user data - replace with actual API response
-      const userData: User = {
-        id: '1',
-        email,
-        name: email.split('@')[0],
-        createdAt: new Date().toISOString(),
-      };
-      
-      // Mock token - replace with actual JWT token from your backend
-      const token = 'mock_jwt_token_' + Date.now();
-      
-      // Store user data and token
-      localStorage.setItem('auth_user', JSON.stringify(userData));
-      localStorage.setItem('auth_token', token);
-      
-      setUser(userData);
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          email: user.email!,
+          name: user.user_metadata?.name || null,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          updated_at: new Date().toISOString()
+        });
+
+      if (error) {
+        console.error('Error creating/updating profile:', error);
+      } else {
+        console.log('Profile created/updated successfully');
+      }
     } catch (error) {
-      console.error('Login error:', error);
-      throw new Error('Invalid email or password');
+      console.error('Exception creating/updating profile:', error);
+    }
+  };
+
+  const login = async (email: string, password: string): Promise<void> => {
+    try {
+      console.log('🔍 AuthProvider: Login attempt for:', email);
+      setIsLoading(true);
+      
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (error) {
+        console.error('🔍 AuthProvider: Login error:', error);
+        throw new Error(error.message);
+      }
+      
+      console.log('🔍 AuthProvider: Login successful for:', email);
+      // State will be updated by the auth state change listener
+      
+    } catch (error) {
+      console.error('🔍 AuthProvider: Login exception:', error);
+      throw error;
     } finally {
       setIsLoading(false);
     }
   };
 
   const register = async (email: string, password: string, name?: string): Promise<void> => {
-    setIsLoading(true);
-    
     try {
-      // Simulate API call - replace with actual registration
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log('🔍 AuthProvider: Registration attempt for:', email);
+      setIsLoading(true);
       
-      // Mock user data - replace with actual API response
-      const userData: User = {
-        id: Date.now().toString(),
+      const { data, error } = await supabase.auth.signUp({
         email,
-        name: name || email.split('@')[0],
-        createdAt: new Date().toISOString(),
-      };
+        password,
+        options: {
+          data: {
+            name: name || email.split('@')[0]
+          }
+        }
+      });
       
-      // Mock token - replace with actual JWT token from your backend
-      const token = 'mock_jwt_token_' + Date.now();
+      if (error) {
+        console.error('🔍 AuthProvider: Registration error:', error);
+        throw new Error(error.message);
+      }
       
-      // Store user data and token
-      localStorage.setItem('auth_user', JSON.stringify(userData));
-      localStorage.setItem('auth_token', token);
+      console.log('🔍 AuthProvider: Registration successful for:', email);
       
-      setUser(userData);
+      // Check if email confirmation is required
+      if (data.user && !data.session) {
+        throw new Error('Please check your email and click the confirmation link to complete registration.');
+      }
+      
     } catch (error) {
-      console.error('Registration error:', error);
-      throw new Error('Registration failed. Please try again.');
+      console.error('🔍 AuthProvider: Registration exception:', error);
+      throw error;
     } finally {
       setIsLoading(false);
     }
   };
 
-  const logout = () => {
-    // Clear user data and token
-    localStorage.removeItem('auth_user');
-    localStorage.removeItem('auth_token');
-    setUser(null);
+  const logout = async (): Promise<void> => {
+    try {
+      console.log('🔍 AuthProvider: Logout initiated');
+      setIsLoading(true);
+      
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error('🔍 AuthProvider: Logout error:', error);
+        throw error;
+      }
+      
+      console.log('🔍 AuthProvider: Logout completed successfully');
+      // State will be updated by the auth state change listener
+      
+    } catch (error) {
+      console.error('🔍 AuthProvider: Logout exception:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const value: AuthContextType = {
     user,
+    session,
+    isLoading,
+    isAuthenticated: !!user,
     login,
     register,
     logout,
-    isLoading,
-    isAuthenticated: !!user,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  console.log('🔍 AuthProvider: Current state:', {
+    hasUser: !!user,
+    userEmail: user?.email,
+    isLoading,
+    hasSession: !!session
+  });
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
