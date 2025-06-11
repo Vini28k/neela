@@ -113,13 +113,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsLoading(true);
       
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.trim().toLowerCase(),
         password,
       });
       
       if (error) {
         console.error('🔍 AuthProvider: Login error:', error);
-        throw new Error(error.message);
+        
+        // Provide more specific error messages
+        if (error.message.includes('Invalid login credentials')) {
+          throw new Error('Invalid email or password. Please check your credentials and try again.');
+        } else if (error.message.includes('Email not confirmed')) {
+          throw new Error('Please check your email and click the confirmation link before signing in.');
+        } else if (error.message.includes('Too many requests')) {
+          throw new Error('Too many login attempts. Please wait a few minutes before trying again.');
+        } else {
+          throw new Error(error.message);
+        }
       }
       
       console.log('🔍 AuthProvider: Login successful for:', email);
@@ -139,7 +149,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsLoading(true);
       
       const { data, error } = await supabase.auth.signUp({
-        email,
+        email: email.trim().toLowerCase(),
         password,
         options: {
           data: {
@@ -150,7 +160,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       if (error) {
         console.error('🔍 AuthProvider: Registration error:', error);
-        throw new Error(error.message);
+        
+        // Provide more specific error messages
+        if (error.message.includes('User already registered')) {
+          throw new Error('An account with this email already exists. Please sign in instead.');
+        } else if (error.message.includes('Password should be at least')) {
+          throw new Error('Password is too weak. Please choose a stronger password with at least 6 characters.');
+        } else if (error.message.includes('Unable to validate email address')) {
+          throw new Error('Please enter a valid email address.');
+        } else {
+          throw new Error(error.message);
+        }
       }
       
       console.log('🔍 AuthProvider: Registration successful for:', email);
