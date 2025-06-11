@@ -9,6 +9,9 @@ const Welcome = lazy(() => import("@/components/Welcome"));
 const AuthForm = lazy(() => import("@/components/auth/AuthForm"));
 const Index = lazy(() => import("@/pages/Index"));
 const WeatherPatterns = lazy(() => import("@/pages/WeatherPatterns"));
+const WeatherTools = lazy(() => import("@/pages/WeatherTools"));
+const BreathingExercise = lazy(() => import("@/pages/BreathingExercise"));
+const StormShelter = lazy(() => import("@/pages/StormShelter"));
 const Explanation = lazy(() => import("@/pages/Explanation"));
 const PrivacyPolicy = lazy(() => import("@/pages/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("@/pages/TermsOfService"));
@@ -46,6 +49,30 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute>
               <WeatherPatterns />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/tools" 
+          element={
+            <ProtectedRoute>
+              <WeatherTools />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/breathing" 
+          element={
+            <ProtectedRoute>
+              <BreathingExercise />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/storm-shelter" 
+          element={
+            <ProtectedRoute>
+              <StormShelter />
             </ProtectedRoute>
           } 
         />
