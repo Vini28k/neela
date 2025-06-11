@@ -1,6 +1,6 @@
 /**
- * Optimized Bluetooth service with better performance and battery management
- * Consolidated device management and heart rate monitoring
+ * Optimized Bluetooth service with proper memory management
+ * Fixed memory leaks by tracking and cleaning up all intervals
  */
 
 import { BleClient, BleDevice } from '@capacitor-community/bluetooth-le';
@@ -13,9 +13,11 @@ class BluetoothService {
   private connectedDevice: BleDevice | null = null;
   private isScanning = false;
   private heartRateCallback: ((reading: HeartRateReading) => void) | null = null;
-  private mockInterval: NodeJS.Timeout | null = null;
   private baseHeartRate = 70;
   private currentCrisisLevel: CrisisLevel = 'normal';
+  
+  // Track all mock intervals to prevent memory leaks
+  private mockIntervals: Set<NodeJS.Timeout> = new Set();
 
   /**
    * Initialize Bluetooth LE
@@ -92,7 +94,8 @@ class BluetoothService {
       );
 
       // Auto-stop scanning after timeout
-      setTimeout(() => this.stopScanning(), timeoutMs);
+      const timeoutId = setTimeout(() => this.stopScanning(), timeoutMs);
+      this.mockIntervals.add(timeoutId);
 
       return devices;
     } catch (error) {
@@ -197,7 +200,7 @@ class BluetoothService {
     this.currentCrisisLevel = crisisLevel;
     
     // Restart mock monitoring with new interval if active
-    if (this.mockInterval && !Capacitor.isNativePlatform()) {
+    if (this.mockIntervals.size > 0 && !Capacitor.isNativePlatform()) {
       this.stopMockHeartRateMonitoring();
       this.startMockHeartRateMonitoring();
     }
@@ -207,6 +210,9 @@ class BluetoothService {
    * Start mock heart rate monitoring for development
    */
   private startMockHeartRateMonitoring(): void {
+    // Clear any existing intervals first
+    this.stopMockHeartRateMonitoring();
+
     const generateReading = () => {
       if (!this.heartRateCallback || !this.connectedDevice) {
         this.stopMockHeartRateMonitoring();
@@ -228,17 +234,27 @@ class BluetoothService {
 
     // Use adaptive interval based on crisis level
     const interval = getUpdateInterval(this.currentCrisisLevel);
-    this.mockInterval = setInterval(generateReading, interval);
+    const intervalId = setInterval(generateReading, interval);
+    
+    // Track the interval for proper cleanup
+    this.mockIntervals.add(intervalId);
+    
+    console.log(`Started mock heart rate monitoring with ${interval}ms interval`);
   }
 
   /**
-   * Stop mock heart rate monitoring
+   * Stop mock heart rate monitoring and clean up all intervals
    */
   private stopMockHeartRateMonitoring(): void {
-    if (this.mockInterval) {
-      clearInterval(this.mockInterval);
-      this.mockInterval = null;
-    }
+    // Clear all tracked intervals
+    this.mockIntervals.forEach(intervalId => {
+      clearInterval(intervalId);
+    });
+    
+    // Clear the set
+    this.mockIntervals.clear();
+    
+    console.log('Stopped mock heart rate monitoring and cleaned up intervals');
   }
 
   /**
@@ -273,16 +289,19 @@ class BluetoothService {
         );
       }
       
+      // Always clean up mock intervals
       this.stopMockHeartRateMonitoring();
       this.heartRateCallback = null;
       console.log('Stopped heart rate monitoring');
     } catch (error) {
       console.error('Error stopping heart rate monitoring:', error);
+      // Still clean up intervals even if there's an error
+      this.stopMockHeartRateMonitoring();
     }
   }
 
   /**
-   * Disconnect from device
+   * Disconnect from device and clean up all resources
    */
   async disconnect(): Promise<void> {
     try {
@@ -296,8 +315,14 @@ class BluetoothService {
         this.connectedDevice = null;
         console.log('Disconnected from device');
       }
+      
+      // Ensure all intervals are cleaned up
+      this.stopMockHeartRateMonitoring();
+      
     } catch (error) {
       console.error('Error disconnecting:', error);
+      // Always clean up intervals even if disconnect fails
+      this.stopMockHeartRateMonitoring();
     }
   }
 
@@ -316,7 +341,7 @@ class BluetoothService {
   }
 
   /**
-   * Get service statistics
+   * Get service statistics including memory usage
    */
   getStats() {
     return {
@@ -324,9 +349,37 @@ class BluetoothService {
       isScanning: this.isScanning,
       deviceName: this.connectedDevice?.name || null,
       crisisLevel: this.currentCrisisLevel,
-      updateInterval: getUpdateInterval(this.currentCrisisLevel)
+      updateInterval: getUpdateInterval(this.currentCrisisLevel),
+      activeIntervals: this.mockIntervals.size,
+      memoryLeakPrevention: 'Active'
     };
+  }
+
+  /**
+   * Force cleanup of all resources (useful for testing or emergency cleanup)
+   */
+  forceCleanup(): void {
+    console.log('Force cleaning up Bluetooth service resources...');
+    
+    // Stop all monitoring
+    this.stopMockHeartRateMonitoring();
+    
+    // Clear callbacks
+    this.heartRateCallback = null;
+    
+    // Reset state
+    this.isScanning = false;
+    this.connectedDevice = null;
+    
+    console.log('Bluetooth service force cleanup completed');
   }
 }
 
 export const bluetoothService = new BluetoothService();
+
+// Cleanup on page unload to prevent memory leaks
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    bluetoothService.forceCleanup();
+  });
+}
