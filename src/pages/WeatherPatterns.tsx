@@ -1,186 +1,70 @@
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft, TrendingUp, Calendar, Heart } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import NavigationBar from '@/components/NavigationBar';
+import StatusBar from '@/components/StatusBar';
+import WeatherPatternsHeader from '@/components/WeatherPatternsHeader';
+import WeatherPatternsContent from '@/components/WeatherPatternsContent';
 
 const WeatherPatterns = () => {
-  const navigate = useNavigate();
-  const [selectedPeriod, setSelectedPeriod] = useState('week');
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
-  const mockData = {
-    week: {
-      averageStress: 32,
-      calmPeriods: 18,
-      stormWarnings: 3,
-      patterns: [
-        { day: 'Mon', stress: 25, calm: 75 },
-        { day: 'Tue', stress: 45, calm: 55 },
-        { day: 'Wed', stress: 20, calm: 80 },
-        { day: 'Thu', stress: 60, calm: 40 },
-        { day: 'Fri', stress: 35, calm: 65 },
-        { day: 'Sat', stress: 15, calm: 85 },
-        { day: 'Sun', stress: 10, calm: 90 },
-      ]
+  // Theme colors
+  const getThemeColors = () => {
+    if (isDarkMode) {
+      return {
+        background: 'linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%)',
+        cardBackground: 'rgba(26, 32, 44, 0.9)',
+        cardBorder: '#4a5568',
+        primaryText: '#f7fafc',
+        secondaryText: '#a0aec0'
+      };
+    } else {
+      return {
+        background: 'linear-gradient(135deg, #f0f4f7 0%, #e8f2f7 100%)',
+        cardBackground: 'rgba(255, 255, 255, 0.9)',
+        cardBorder: '#e2e8f0',
+        primaryText: '#2d3748',
+        secondaryText: '#718096'
+      };
     }
   };
 
-  const data = mockData[selectedPeriod as keyof typeof mockData];
+  const theme = getThemeColors();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-      {/* Header */}
-      <div className="bg-white/80 backdrop-blur-sm border-b border-white/20 sticky top-0 z-10">
-        <div className="flex items-center gap-4 px-6 py-4">
-          <Button
-            onClick={() => navigate('/dashboard')}
-            variant="ghost"
-            size="sm"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-              <TrendingUp className="w-5 h-5 text-white" />
-            </div>
-            <h1 className="text-xl font-bold text-slate-900">Weather Patterns</h1>
+    <div className="h-screen flex flex-col">
+      {/* Fixed Status Bar */}
+      <StatusBar isDarkMode={isDarkMode} />
+
+      {/* Scrollable Main Content */}
+      <ScrollArea className="flex-1">
+        <div 
+          className="min-h-full pb-24 relative"
+          style={{
+            background: theme.background
+          }}
+        >
+          <div className="p-6 max-w-md mx-auto">
+            {/* Header */}
+            <WeatherPatternsHeader
+              isDarkMode={isDarkMode}
+              setIsDarkMode={setIsDarkMode}
+            />
+
+            {/* Main Content */}
+            <WeatherPatternsContent
+              isDarkMode={isDarkMode}
+              cardBackground={theme.cardBackground}
+              cardBorder={theme.cardBorder}
+              primaryText={theme.primaryText}
+              secondaryText={theme.secondaryText}
+            />
           </div>
         </div>
-      </div>
+      </ScrollArea>
 
-      <div className="p-6 max-w-4xl mx-auto">
-        {/* Period Selector */}
-        <div className="flex gap-2 mb-6">
-          {['day', 'week', 'month'].map((period) => (
-            <Button
-              key={period}
-              variant={selectedPeriod === period ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedPeriod(period)}
-              className="capitalize"
-            >
-              {period}
-            </Button>
-          ))}
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid md:grid-cols-3 gap-6 mb-8">
-          <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
-                <Heart className="w-4 h-4" />
-                Average Stress
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-slate-900">{data.averageStress}%</div>
-              <p className="text-sm text-green-600">↓ 5% from last week</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                Calm Periods
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-slate-900">{data.calmPeriods}</div>
-              <p className="text-sm text-green-600">↑ 3 from last week</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">
-                Storm Warnings
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-slate-900">{data.stormWarnings}</div>
-              <p className="text-sm text-orange-600">→ Same as last week</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Pattern Chart */}
-        <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold text-slate-900">
-              Weekly Weather Pattern
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {data.patterns.map((day, index) => (
-                <div key={index} className="flex items-center gap-4">
-                  <div className="w-12 text-sm font-medium text-slate-600">
-                    {day.day}
-                  </div>
-                  <div className="flex-1 flex rounded-lg overflow-hidden h-8">
-                    <div 
-                      className="bg-red-200 flex items-center justify-center text-xs font-medium text-red-800"
-                      style={{ width: `${day.stress}%` }}
-                    >
-                      {day.stress > 20 && `${day.stress}%`}
-                    </div>
-                    <div 
-                      className="bg-green-200 flex items-center justify-center text-xs font-medium text-green-800"
-                      style={{ width: `${day.calm}%` }}
-                    >
-                      {day.calm > 20 && `${day.calm}%`}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="flex justify-center gap-6 mt-6 pt-4 border-t border-slate-200">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-red-200 rounded"></div>
-                <span className="text-sm text-slate-600">Stress</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-green-200 rounded"></div>
-                <span className="text-sm text-slate-600">Calm</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Insights */}
-        <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg mt-6">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold text-slate-900">
-              Insights & Recommendations
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <h4 className="font-semibold text-blue-800 mb-2">🌅 Morning Pattern</h4>
-                <p className="text-sm text-blue-700">
-                  You tend to have the calmest mornings on weekends. Consider maintaining similar routines on weekdays.
-                </p>
-              </div>
-              <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
-                <h4 className="font-semibold text-orange-800 mb-2">⚡ Stress Trigger</h4>
-                <p className="text-sm text-orange-700">
-                  Thursday shows consistently higher stress levels. Consider scheduling lighter activities on this day.
-                </p>
-              </div>
-              <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                <h4 className="font-semibold text-green-800 mb-2">🎯 Success Pattern</h4>
-                <p className="text-sm text-green-700">
-                  Your weekend routine creates optimal conditions for calm weather. Great work!
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Fixed Bottom Navigation */}
+      <NavigationBar isDarkMode={isDarkMode} />
     </div>
   );
 };
