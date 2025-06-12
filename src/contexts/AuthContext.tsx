@@ -41,6 +41,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         if (error) {
           console.error('🔍 AuthProvider: Error getting initial session:', error);
+          // Don't throw here, just log and continue
         } else {
           console.log('🔍 AuthProvider: Initial session:', session?.user?.email || 'No session');
           setSession(session);
@@ -48,6 +49,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
       } catch (error) {
         console.error('🔍 AuthProvider: Exception getting initial session:', error);
+        // Continue without throwing to prevent app crash
       } finally {
         setIsLoading(false);
       }
@@ -121,12 +123,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.error('🔍 AuthProvider: Login error:', error);
         
         // Provide more specific error messages
-        if (error.message.includes('Invalid login credentials')) {
+        if (error.message.includes('Invalid login credentials') || error.message.includes('invalid_credentials')) {
           throw new Error('Invalid email or password. Please check your credentials and try again.');
         } else if (error.message.includes('Email not confirmed')) {
           throw new Error('Please check your email and click the confirmation link before signing in.');
         } else if (error.message.includes('Too many requests')) {
           throw new Error('Too many login attempts. Please wait a few minutes before trying again.');
+        } else if (error.message.includes('Failed to fetch') || error.message.includes('fetch')) {
+          throw new Error('Unable to connect to the server. Please check your internet connection and try again.');
         } else {
           throw new Error(error.message);
         }
@@ -168,6 +172,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           throw new Error('Password is too weak. Please choose a stronger password with at least 6 characters.');
         } else if (error.message.includes('Unable to validate email address')) {
           throw new Error('Please enter a valid email address.');
+        } else if (error.message.includes('Failed to fetch') || error.message.includes('fetch')) {
+          throw new Error('Unable to connect to the server. Please check your internet connection and try again.');
         } else {
           throw new Error(error.message);
         }

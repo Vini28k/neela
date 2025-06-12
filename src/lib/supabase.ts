@@ -4,16 +4,49 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Missing Supabase environment variables:', {
+    url: !!supabaseUrl,
+    key: !!supabaseAnonKey
+  });
   throw new Error('Missing Supabase environment variables. Please check your .env file.')
 }
+
+console.log('🔍 Supabase client initializing with URL:', supabaseUrl);
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true
+    detectSessionInUrl: true,
+    flowType: 'pkce'
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'mental-weather-app'
+    }
+  },
+  db: {
+    schema: 'public'
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 2
+    }
   }
 })
+
+// Test connection on initialization
+supabase.from('profiles').select('count', { count: 'exact', head: true })
+  .then(({ error }) => {
+    if (error) {
+      console.error('🔍 Supabase connection test failed:', error);
+    } else {
+      console.log('🔍 Supabase connection test successful');
+    }
+  })
+  .catch((error) => {
+    console.error('🔍 Supabase connection test exception:', error);
+  });
 
 // Database types (will be auto-generated from Supabase CLI later)
 export interface Database {
