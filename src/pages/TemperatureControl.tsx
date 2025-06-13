@@ -277,3 +277,5 @@ const TemperatureControl = () => {
     </div>
   );
 };
+
+export default TemperatureControl;

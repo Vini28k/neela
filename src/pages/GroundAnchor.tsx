@@ -351,3 +351,5 @@ const GroundAnchor = () => {
     </div>
   );
 };
+
+export default GroundAnchor;

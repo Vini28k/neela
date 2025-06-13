@@ -307,3 +307,5 @@ const PressureTherapy = () => {
     </div>
   );
 };
+
+export default PressureTherapy;

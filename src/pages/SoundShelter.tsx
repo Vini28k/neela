@@ -246,3 +246,5 @@ const SoundShelter = () => {
     </div>
   );
 };
+
+export default SoundShelter;

@@ -261,3 +261,5 @@ const BodyScan = () => {
     </div>
   );
 };
+
+export default BodyScan;
