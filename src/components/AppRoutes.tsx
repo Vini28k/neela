@@ -20,6 +20,13 @@ const DeviceConnection = lazy(() => import("@/pages/DeviceConnection"));
 const AdminSetup = lazy(() => import("@/pages/AdminSetup"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 
+// Weather Tools
+const SoundShelter = lazy(() => import("@/pages/SoundShelter"));
+const BodyScan = lazy(() => import("@/pages/BodyScan"));
+const TemperatureControl = lazy(() => import("@/pages/TemperatureControl"));
+const PressureTherapy = lazy(() => import("@/pages/PressureTherapy"));
+const GroundAnchor = lazy(() => import("@/pages/GroundAnchor"));
+
 const AppRoutes = () => {
   console.log("🔍 AppRoutes: Rendering application routes");
 
@@ -82,6 +89,48 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute>
               <Settings />
+            </ProtectedRoute>
+          } 
+        />
+
+        {/* Weather Tools Routes */}
+        <Route 
+          path="/sound-shelter" 
+          element={
+            <ProtectedRoute>
+              <SoundShelter />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/body-scan" 
+          element={
+            <ProtectedRoute>
+              <BodyScan />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/temperature" 
+          element={
+            <ProtectedRoute>
+              <TemperatureControl />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/pressure" 
+          element={
+            <ProtectedRoute>
+              <PressureTherapy />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/ground-anchor" 
+          element={
+            <ProtectedRoute>
+              <GroundAnchor />
             </ProtectedRoute>
           } 
         />

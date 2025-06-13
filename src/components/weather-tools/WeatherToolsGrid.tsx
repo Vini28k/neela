@@ -88,7 +88,7 @@ const WeatherToolsGrid = ({
       {tools.map((tool, index) => (
         <Card 
           key={index}
-          className="cursor-pointer hover:shadow-lg transition-all duration-200"
+          className="cursor-pointer hover:shadow-lg transition-shadow"
           style={{ 
             background: isDarkMode ? cardBackground : tool.gradient,
             border: `2px solid ${isDarkMode ? cardBorder : 'rgba(255,255,255,0.5)'}`,
