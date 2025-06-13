@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Eye, Ear, Hand, Nose, Zap } from 'lucide-react';
+import { ArrowLeft, Eye, Ear, Hand, DoorClosed as Nose, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const GroundAnchor = () => {
