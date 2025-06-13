@@ -52,7 +52,7 @@ const BodyScan = () => {
     }
 
     return () => clearInterval(interval);
-  }, [isActive, currentStep]);
+  }, [isActive, currentStep, bodyParts]);
 
   const startScan = () => {
     setIsActive(true);
